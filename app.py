@@ -5,34 +5,29 @@ from io import BytesIO
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "my_secret_key"
 
-@app.route("/audio/<video_id>", methods=["GET"])
-def audio(video_id):
+@app.route("/video/<video_id>", methods=["GET"])
+def video(video_id):
     youtube_link = f"https://www.youtube.com/watch?v={video_id}"
     buffer = BytesIO()
     url = YouTube(youtube_link)
-    audio_stream = url.streams.filter(only_audio=True).first()
+    
+    # Select the stream with 1080p resolution (if available)
+    video_stream = url.streams.filter(res="1080p", file_extension="mp4").first()
 
-    if audio_stream:
-        audio_stream.stream_to_buffer(buffer)
+    if video_stream:
+        video_stream.stream_to_buffer(buffer)
         buffer.seek(0)
 
-        # Set the ID3 tags for the audio file
-        audio_file = buffer.read()
-        audio_path = f"{url.title}.mp3"
-        
-        audio = eyed3.load(audio_path)
-        audio.tag.artist = "Your Artist Name"
-        audio.tag.title = url.title  # Use the video title as the audio title
-        audio.tag.album = "Your Album"
+        video_path = f"{url.title}.mp4"
 
         # Fetch and set the thumbnail image
         thumbnail_url = url.thumbnail_url
         thumbnail_data = BytesIO(YouTube(thumbnail_url).thumbnail_url)
-        audio.tag.images.set(3, thumbnail_data.read(), "image/jpeg", "Thumbnail")
+        
+        with open(video_path, "wb") as video_file:
+            video_file.write(buffer.read())
 
-        audio.tag.save()
-
-        return send_file(audio_path)
+        return send_file(video_path, as_attachment=True)
 
     return "Invalid or missing YouTube link parameter."
 

@@ -26,11 +26,12 @@ def audio(video_id):
         audio_stream.stream_to_buffer(buffer)
         buffer.seek(0)
 
-        return send_file(buffer, as_attachment=True, download_name=f"{url.title}.mp3", mimetype="audio/mpeg")
+        # Create an <audio> tag with the audio file and a thumbnail poster
+        audio_tag = f'<audio controls poster="{url.thumbnail_url}" preload="none"><source src="{url.title}.mp3" type="audio/mpeg">Your browser does not support the audio element.</audio>'
+
+        return audio_tag
 
     return "Invalid or missing YouTube link parameter."
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-

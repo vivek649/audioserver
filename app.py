@@ -1,36 +1,33 @@
 from pytube import YouTube
-from flask import Flask, session, send_file, request
+from flask import Flask, request, send_file
+from io import BytesIO
 
 app = Flask(__name)
-app.config["SECRET_KEY"] = "my_secret_key"
 
-@app.route("/download", methods=["GET"])
-def download():
-    youtube_link = request.args.get("url")
-    if youtube_link:
-        buffer = BytesIO()
-        url = YouTube(youtube_link)
-        audio_stream = url.streams.filter(only_audio=True).first()
+@app.route("/", methods=["GET", "POST"])
+def index():
+    if request.method == "POST":
+        youtube_link = request.form.get("url")
+        return redirect(f"/audio/{youtube_link}")
+    return '''
+    <form method="post">
+        <input type="text" name="url" placeholder="Enter YouTube URL">
+        <input type="submit" value="Download Audio">
+    </form>
+    '''
 
-        if audio_stream:
-            audio_stream.stream_to_buffer(buffer)
-            buffer.seek(0)
+@app.route("/audio/<video_id>", methods=["GET"])
+def audio(video_id):
+    youtube_link = f"https://www.youtube.com/watch?v={video_id}"
+    buffer = BytesIO()
+    url = YouTube(youtube_link)
+    audio_stream = url.streams.filter(only_audio=True).first()
 
-            # Set the appropriate headers for audio download
-            headers = {
-                "Content-Disposition": f'attachment; filename="{url.title}.mp3"',
-                "Content-Type": "audio/mpeg"
-            }
+    if audio_stream:
+        audio_stream.stream_to_buffer(buffer)
+        buffer.seek(0)
 
-            return send_file(
-                buffer,
-                as_attachment=True,
-                mimetype="audio/mpeg",
-                download_name=f'{url.title}.mp3',
-                headers=headers
-            )
-        else:
-            return "No audio stream found for the provided YouTube link."
+        return send_file(buffer, as_attachment=True, download_name=f"{url.title}.mp3", mimetype="audio/mpeg")
 
     return "Invalid or missing YouTube link parameter."
 

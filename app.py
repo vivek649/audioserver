@@ -1,36 +1,36 @@
 from pytube import YouTube
-from flask import Flask, request, send_file
-from io import BytesIO
+from flask import Flask, session, send_file, request
 
 app = Flask(__name)
+app.config["SECRET_KEY"] = "my_secret_key"
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/", methods=["POST", "GET"])
 def index():
     if request.method == "POST":
-        youtube_link = request.form.get("url")
-        return redirect(f"/audio/{youtube_link}")
-    return '''
-    <form method="post">
-        <input type="text" name="url" placeholder="Enter YouTube URL">
-        <input type="submit" value="Download Audio">
-    </form>
-    '''
+        session["link"] = request.form.get("url")
+        url = YouTube(session["link"])
+        url.check_availability()
+        return "Video URL submitted. <a href='/download'>Click here to download audio</a>"
 
-@app.route("/audio/<video_id>", methods=["GET"])
-def audio(video_id):
-    youtube_link = f"https://www.youtube.com/watch?v={video_id}"
-    buffer = BytesIO()
-    url = YouTube(youtube_link)
-    audio_stream = url.streams.filter(only_audio=True).first()
+    return "Enter a YouTube URL."
 
-    if audio_stream:
-        audio_stream.stream_to_buffer(buffer)
-        buffer.seek(0)
+@app.route("/download", methods=["GET"])
+def download():
+    youtube_link = session.get("link")
+    if youtube_link:
+        url = YouTube(youtube_link)
+        audio_stream = url.streams.filter(only_audio=True).first()
 
-        return send_file(buffer, as_attachment=True, download_name=f"{url.title}.mp3", mimetype="audio/mpeg")
+        if audio_stream:
+            audio_stream.download(output_path="downloads/")
+            return send_file(
+                "downloads/" + audio_stream.default_filename,
+                as_attachment=True,
+                download_name=audio_stream.default_filename,
+                mimetype="audio/mpeg"
+            )
 
     return "Invalid or missing YouTube link parameter."
 
 if __name__ == '__main__':
     app.run(debug=True)
-

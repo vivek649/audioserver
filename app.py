@@ -1,19 +1,8 @@
 from pytube import YouTube
-from flask import Flask, session, url_for, send_file, render_template, redirect, request
-from io import BytesIO
+from flask import Flask, session, send_file, request
 
-app = Flask(__name__)
+app = Flask(__name)
 app.config["SECRET_KEY"] = "my_secret_key"
-
-@app.route("/", methods=["POST", "GET"])
-def index():
-    if request.method == "POST":
-        session["link"] = request.form.get("url")
-        url = YouTube(session["link"])
-        url.check_availability()
-        return render_template("download.html", url=url)
-
-    return render_template('index.html')
 
 @app.route("/download", methods=["GET"])
 def download():
@@ -21,18 +10,30 @@ def download():
     if youtube_link:
         buffer = BytesIO()
         url = YouTube(youtube_link)
-        video = url.streams.get_highest_resolution()
+        audio_stream = url.streams.filter(only_audio=True).first()
 
-        # Stream the video to the buffer
-        video.stream_to_buffer(buffer)
-        buffer.seek(0)
+        if audio_stream:
+            audio_stream.stream_to_buffer(buffer)
+            buffer.seek(0)
 
-        return send_file(buffer, as_attachment=True, download_name=video.title, mimetype=video.mime_type)
+            # Set the appropriate headers for audio download
+            headers = {
+                "Content-Disposition": f'attachment; filename="{url.title}.mp3"',
+                "Content-Type": "audio/mpeg"
+            }
+
+            return send_file(
+                buffer,
+                as_attachment=True,
+                mimetype="audio/mpeg",
+                download_name=f'{url.title}.mp3',
+                headers=headers
+            )
+        else:
+            return "No audio stream found for the provided YouTube link."
 
     return "Invalid or missing YouTube link parameter."
 
 if __name__ == '__main__':
     app.run(debug=True)
-    # Happy Coding :-)
-
 

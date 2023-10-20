@@ -1,21 +1,19 @@
 from pytube import YouTube
-from flask import Flask, request, send_file
+from flask import Flask, session, url_for, send_file, render_template, redirect, request
 from io import BytesIO
 
-# Create the Flask app and name it 'app'
-app = Flask(__name)
+app = Flask(__name__)
+app.config["SECRET_KEY"] = "my_secret_key"
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/", methods=["POST", "GET"])
 def index():
     if request.method == "POST":
-        youtube_link = request.form.get("url")
-        return redirect(f"/audio/{youtube_link}")
-    return '''
-    <form method="post">
-        <input type="text" name="url" placeholder="Enter YouTube URL">
-        <input type="submit" value="Download Audio">
-    </form>
-    '''
+        session["link"] = request.form.get("url")
+        url = YouTube(session["link"])
+        url.check_availability()
+        return render_template("download.html", url=url)
+
+    return render_template('index.html')
 
 @app.route("/audio/<video_id>", methods=["GET"])
 def audio(video_id):

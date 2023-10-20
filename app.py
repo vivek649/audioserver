@@ -5,16 +5,6 @@ from io import BytesIO
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "my_secret_key"
 
-@app.route("/", methods=["POST", "GET"])
-def index():
-    if request.method == "POST":
-        session["link"] = request.form.get("url")
-        url = YouTube(session["link"])
-        url.check_availability()
-        return render_template("download.html", url=url)
-
-    return render_template('index.html')
-
 @app.route("/audio/<video_id>", methods=["GET"])
 def audio(video_id):
     youtube_link = f"https://www.youtube.com/watch?v={video_id}"
@@ -26,10 +16,23 @@ def audio(video_id):
         audio_stream.stream_to_buffer(buffer)
         buffer.seek(0)
 
-        # Create an <audio> tag with the audio file and a thumbnail poster
-        audio_tag = f'<audio controls poster="{url.thumbnail_url}" preload="none"><source src="{url.title}.mp3" type="audio/mpeg">Your browser does not support the audio element.</audio>'
+        # Set the ID3 tags for the audio file
+        audio_file = buffer.read()
+        audio_path = f"{url.title}.mp3"
+        
+        audio = eyed3.load(audio_path)
+        audio.tag.artist = "Your Artist Name"
+        audio.tag.title = url.title  # Use the video title as the audio title
+        audio.tag.album = "Your Album"
 
-        return audio_tag
+        # Fetch and set the thumbnail image
+        thumbnail_url = url.thumbnail_url
+        thumbnail_data = BytesIO(YouTube(thumbnail_url).thumbnail_url)
+        audio.tag.images.set(3, thumbnail_data.read(), "image/jpeg", "Thumbnail")
+
+        audio.tag.save()
+
+        return send_file(audio_path)
 
     return "Invalid or missing YouTube link parameter."
 

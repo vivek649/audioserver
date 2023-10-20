@@ -31,7 +31,21 @@ def download():
 
     return "Invalid or missing YouTube link parameter."
 
+@app.route("/api/<video_id>", methods=["GET"])
+def audio(video_id):
+    youtube_link = f"https://www.youtube.com/watch?v={video_id}"
+    buffer = BytesIO()
+    url = YouTube(youtube_link)
+    audio_stream = url.streams.filter(only_audio=True).first()
+
+    if audio_stream:
+        audio_stream.stream_to_buffer(buffer)
+        buffer.seek(0)
+
+        return send_file(buffer, as_attachment=True, download_name=f"{url.title}.mp3", mimetype="audio/mpeg")
+
+    return "Invalid or missing YouTube link parameter."
+
 if __name__ == '__main__':
     app.run(debug=True)
-    # Happy Coding :-)
 
